@@ -12,14 +12,26 @@ from nltk.stem.wordnet import WordNetLemmatizer
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.linear_model import LassoCV
 
 class IMDBContentBased:
 
     def __init__(self):
         self.df_imdb = pd.read_csv('./datasets/IMDB-Movie-Data.csv')
-        self.X = pd.DataFrame()
-        self.y = []
-        self.X_train = pd.DataFrame()
+        self.recommendations = pd.DataFrame()
+        try:
+            self.X = pd.read_csv('./rs/userevaluation/X.csv', index_col=0)
+            self.y = pd.read_csv('./rs/userevaluation/y.csv', index_col=0)
+            try:
+                self.y = self.y.drop(columns="Title")
+            except KeyError:
+                pass
+            self.X_train = pd.read_csv('./rs/userevaluation/X_train.csv', index_col=0)
+        except FileNotFoundError:
+            self.X = pd.DataFrame()
+            self.y = pd.DataFrame()
+            self.X_train = pd.DataFrame()
+            self.item_description()
     # Most frequently occuring words
 
     def get_top_n_words(corpus, n=None):
@@ -85,24 +97,38 @@ class IMDBContentBased:
         genre_feats = self.tf_id("Genre", 20, 1, 1)
         self.X[genre_feats.columns] = genre_feats
 
-    def colect_evaluations(self, n_samples=5):
+    def initial_evaluations(self, n_samples=5):
         sample = self.X.sample(n_samples)
+        self.collect_evaluations(sample, n_samples)
+
+    def collect_evaluations(self, sample, n_samples=5):
+        y = self.y.values
         for filme in sample.index:
-           nota = np.float(input("Qual a sua nota para o filme " + str(filme) + "?"))
-           if nota != -1:
-                self.y.append(nota)
+            nota = np.float(input("Qual a sua nota para o filme " + str(filme) + "?"))
+            if nota != -1:
+                y = np.append(y, nota)
                 self.X = self.X.drop(index=filme)
-           else:
-               sample = sample.drop(index=filme)
+            else:
+                sample = sample.drop(index=filme)
+        self.y = pd.DataFrame(y)
         self.X_train = self.X_train.append(sample)
+        self.save_train_data()
+
+    def save_train_data(self):
+        self.X_train.to_csv('./rs/userevaluation/X_train.csv')
+        self.y['Title'] = self.X_train.index
+        self.y.to_csv('./rs/userevaluation/y.csv')
+        self.X.to_csv('./rs/userevaluation/X.csv')
+
     def profile_learning(self):
         return None
 
-    def filtering(self, filme, n=10):
-        sim = cosine_similarity(self.X)
-        sim = pd.DataFrame(sim, index=self.X.index, columns=self.X.index)
-        return sim[filme].sort_values(ascending=False)[1:n]
+    def filtering(self,  n=10):
+        reg = LassoCV(alphas=[0.05, 0.25, 0.5, 0.75, 1, 5, 10, 30],cv=5, random_state=0).fit(self.X_train, self.y.values.reshape(-1,))
+        self.recommendations = pd.DataFrame(reg.predict(self.X), index=self.X.index)[0].sort_values(ascending=False)[1:n]
+        return self.recommendations
+    def feedback(self):
+        self.collect_evaluations(self.X.loc[self.recommendations.index, :], self.recommendations.shape[0])
 
 
 cb = IMDBContentBased()
-cb.item_description()
