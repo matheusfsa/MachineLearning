@@ -5,7 +5,7 @@ from pimg import *
 
 class LogisticRegression(object):
 
-    def __init__(self, max_iterations=100, learning_ratio=0.3, tol=0.0001):
+    def __init__(self, max_iterations=1000, learning_ratio=0.3, tol=0.0001):
         self.w = np.array([])
         self.b = 0
         self.is_fit = False
@@ -27,7 +27,12 @@ class LogisticRegression(object):
             z = np.dot(self.w, X.T) + self.b
             delta = self.sigmoid(z) - y.T
             w_ant = np.copy(self.w)
-            self.w = w_ant - alpha*(np.dot(delta, X))
+            print(delta.shape)
+            print(X.shape)
+            dw = np.dot(delta, X)
+            print(dw.shape)
+            self.w = w_ant - alpha*(dw)
+
             self.b = self.b - alpha*(np.sum(delta))
             diff = np.linalg.norm(w_ant-self.w, np.inf)
             self.i += 1
@@ -43,4 +48,11 @@ class LogisticRegression(object):
             return res
         raise RuntimeError('This LogisticRegression instance is not fitted yet.'
                            ' Call fit with appropriate arguments before using this method.')
+
+
+data = load_iris()
+X = data.data[:100]
+y = data.target[:100]
+clf = LogisticRegression(max_iterations=1)
+
 

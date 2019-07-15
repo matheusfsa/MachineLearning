@@ -13,11 +13,13 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.linear_model import LassoCV
+from sklearn.metrics import mean_squared_error
 
 class IMDBContentBased:
 
     def __init__(self):
         self.df_imdb = pd.read_csv('./datasets/IMDB-Movie-Data.csv')
+        self.df_imdb.index = self.df_imdb.Title
         self.recommendations = pd.DataFrame()
         try:
             self.X = pd.read_csv('./rs/userevaluation/X.csv', index_col=0)
@@ -119,12 +121,14 @@ class IMDBContentBased:
         self.y['Title'] = self.X_train.index
         self.y.to_csv('./rs/userevaluation/y.csv')
         self.X.to_csv('./rs/userevaluation/X.csv')
+        self.y = self.y.drop(columns="Title")
 
     def profile_learning(self):
         return None
 
     def filtering(self,  n=10):
         reg = LassoCV(alphas=[0.05, 0.25, 0.5, 0.75, 1, 5, 10, 30],cv=5, random_state=0).fit(self.X_train, self.y.values.reshape(-1,))
+        print(mean_squared_error(reg.predict(self.X_train), self.y.values.reshape(-1,)))
         self.recommendations = pd.DataFrame(reg.predict(self.X), index=self.X.index)[0].sort_values(ascending=False)[1:n]
         return self.recommendations
     def feedback(self):
