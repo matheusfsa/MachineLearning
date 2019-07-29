@@ -2,8 +2,9 @@ import numpy as np
 from estimators.neuralnetworks.layers import *
 from sklearn.datasets import load_iris, load_wine
 import matplotlib.pyplot as plt
+
 class MLP:
-    def __init__(self, layers, epochs=100, learning_ratio=0.03, cost='log', tol=1e-6, batch_size=10):
+    def __init__(self, layers, epochs=100, learning_ratio=0.4, cost='log', tol=1e-4, batch_size=10):
         self.layers = layers
         self.l = len(layers)
         self.a = None
@@ -86,10 +87,15 @@ class MLP:
         erro = self.loss_function('cross-entropy')(y, y_pred)
         y_pred[y_pred >= 0.5] = 1
         y_pred[y_pred < 0.5] = 0
-        self.score = np.sum(y_pred == y) / y.shape[0]
-        return erro
+        score = np.sum(y_pred == y) / y.shape[0]
+        return erro, score
 
     def compute_derivative(self, y):
+        self.backpropagation(y)
+        self.update_weights(y)
+
+    def optimize(self, X, y):
+        self.foward_propagation(X)
         self.backpropagation(y)
         self.update_weights(y)
 
@@ -101,49 +107,33 @@ class MLP:
         self.init_parameters()
         self.n_iteractions = 0
         self.score = 0
+
         delta = np.inf
         i = 0
-        k = (n // self.batch_size)
-        while i < self.epochs and delta > self.tol:
-            ini = 0
-            fim = self.batch_size
-            X_train = X[ini:fim, :]
-            y_train = y[ini:fim, :]
-            erro_ant = self.get_error(X_train, y_train)
-            epoch_ended = False
-            erro = 0
-            while not epoch_ended:
-                self.compute_derivative(y_train)
-                ini = fim
-                fim += self.batch_size
-                if fim > n:
-                    fim = n
-                    epoch_ended = True
-                if ini < n:
-                    X_train = X[ini:fim, :]
-                    y_train = y[ini:fim, :]
-                    erro += self.get_error(X_train, y_train)/k
-            delta = np.abs(erro_ant - erro)
-            erro_ant = erro
-            print('Epochs:', i, ' Error:', erro)
+        erro, self.score = self.get_error(X, y)
+        while i < self.epochs and self.score < 1.0 and delta > self.tol:
+            self.errors.append(erro)
+            for j in range(0, n, self.batch_size):
+                self.optimize(X[j:j+self.batch_size, :], y[j:j+self.batch_size, :])
+            if i > 0:
+                delta = np.abs(self.errors[i] - self.errors[i - 1])
+            erro, self.score = self.get_error(X, y)
+            print('Epochs:', i, ' Error:', erro, 'Score:', self.score)
             i += 1
+        self.n_iteractions = i
         '''
         epsilon = 1e-12
         delta = np.inf
         i=0
+        erro, self.score = self.get_error(X, y)
         while i < self.epochs and self.score < 1.0 and delta > self.tol:
-            y_pred = self.foward_propagation(X)
-            y_pred = np.clip(y_pred, epsilon, 1. - epsilon)
-            erro = self.loss_function('cross-entropy')(y, y_pred)
-            y_pred[y_pred >= 0.5] = 1
-            y_pred[y_pred < 0.5] = 0
-            self.score = np.sum(y_pred == y)/y.shape[0]
             self.errors.append(erro)
             self.backpropagation(y)
             self.update_weights(y)
-            if i < 0:
+            if i > 0:
                 delta = np.abs(self.errors[i] - self.errors[i-1])
-            print('Epochs:', i, ' Error:', erro)
+            erro, self.score = self.get_error(X, y)
+            print('Epochs:', i, ' Error:', erro, 'Score:', self.score)
             i += 1
         self.n_iteractions = i
         '''
@@ -185,5 +175,7 @@ X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
 data = load_iris()
 X = data.data[:100]
 y = data.target[:100]
-mlp.fit(X, y)
+a = np.arange(100)
+np.random.shuffle(a)
+mlp.fit(X[a], y[a])
 print(mlp.score)

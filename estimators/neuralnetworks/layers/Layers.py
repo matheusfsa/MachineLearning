@@ -1,8 +1,8 @@
-import  numpy as np
+import numpy as np
 
 
 class Layer:
-    def __init__(self , units):
+    def __init__(self, units):
         self.z = np.array([])
         self.w = np.array([])
         self.b = np.array([])
@@ -18,7 +18,7 @@ class Layer:
     def initialize_parameters(self, input_dim):
         self.input_dim = input_dim
         self.w = np.random.rand(self.units, input_dim)
-        self.b = np.random.rand(self.units)
+        self.b = np.random.rand(self.units)*0.1
 
     def g(self, z):
         raise NotImplementedError
